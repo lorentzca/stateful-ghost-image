@@ -41,7 +41,7 @@ function runBlogContainer -d "Run blog container"
         return 1
     end
     
-    command echo docker run \
+    command docker run \
         --name blog \
         --privileged \
         -d \
@@ -77,13 +77,13 @@ function commitBlog -d "Commit blog"
     end
 
     # Commit specfy version tag.
-    command echo docker commit \
+    command docker commit \
         -m "\"$message\"" \
         (docker ps -q --filter "name=/blog\$") \
         lorentzca/blog.lorentzca.me:$blogversion-(date +%Y%m%d%H%M)
 
     # Commit latest tag.
-    command echo docker commit \
+    command docker commit \
         -m "\"$message\"" \
         (docker ps -q --filter "name=/blog\$") \
         lorentzca/blog.lorentzca.me:latest
@@ -93,9 +93,9 @@ function pushBlog -d "Push blog to Docker Hub"
     if not set -q $argv[1]
         set tag $argv[1]
         # Push specfy tag.
-        command echo docker push lorentzca/blog.lorentzca.me:$tag
+        command docker push lorentzca/blog.lorentzca.me:$tag
         # Push latest tag.
-        command echo docker push lorentzca/blog.lorentzca.me:latest
+        command docker push lorentzca/blog.lorentzca.me:latest
     else
         # Show blog image tags.
         tags
