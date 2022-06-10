@@ -1,7 +1,7 @@
 # https://docs.ghost.org/faq/node-versions/
-# https://github.com/nodejs/LTS
-# https://github.com/TryGhost/Ghost/blob/3.3.0/package.json#L38
-FROM node:12-alpine3.11
+# https://github.com/nodejs/Release (looking for "LTS")
+# https://github.com/TryGhost/Ghost/blob/v4.1.2/package.json#L38
+FROM node:14-alpine3.14
 
 # grab su-exec for easy step-down from root
 RUN apk add --no-cache 'su-exec>=0.2'
@@ -12,7 +12,7 @@ RUN apk add --no-cache \
 
 ENV NODE_ENV production
 
-ENV GHOST_CLI_VERSION 1.13.1
+ENV GHOST_CLI_VERSION 1.21.0
 RUN set -eux; \
 	npm install -g "ghost-cli@$GHOST_CLI_VERSION"; \
 	npm cache clean --force
@@ -20,7 +20,7 @@ RUN set -eux; \
 ENV GHOST_INSTALL /var/lib/ghost
 ENV GHOST_CONTENT /var/lib/ghost/content
 
-ENV GHOST_VERSION 3.13.3
+ENV GHOST_VERSION 4.48.1
 
 RUN set -eux; \
 	mkdir -p "$GHOST_INSTALL"; \
@@ -30,7 +30,7 @@ RUN set -eux; \
 	\
 # Tell Ghost to listen on all ips and not prompt for additional configuration
 	cd "$GHOST_INSTALL"; \
-	su-exec node ghost config --ip 0.0.0.0 --port 2368 --no-prompt --db sqlite3 --url http://localhost:2368 --dbpath "$GHOST_CONTENT/data/ghost.db"; \
+	su-exec node ghost config --ip '::' --port 2368 --no-prompt --db sqlite3 --url http://localhost:2368 --dbpath "$GHOST_CONTENT/data/ghost.db"; \
 	su-exec node ghost config paths.contentPath "$GHOST_CONTENT"; \
 	\
 # make a config.json symlink for NODE_ENV=development (and sanity check that it's correct)
@@ -41,18 +41,21 @@ RUN set -eux; \
 	mv "$GHOST_CONTENT" "$GHOST_INSTALL/content.orig"; \
 	mkdir -p "$GHOST_CONTENT"; \
 	chown node:node "$GHOST_CONTENT"; \
+	chmod 1777 "$GHOST_CONTENT"; \
 	\
 # force install "sqlite3" manually since it's an optional dependency of "ghost"
 # (which means that if it fails to install, like on ARM/ppc64le/s390x, the failure will be silently ignored and thus turn into a runtime error instead)
 # see https://github.com/TryGhost/Ghost/pull/7677 for more details
 	cd "$GHOST_INSTALL/current"; \
 # scrape the expected version of sqlite3 directly from Ghost itself
-	sqlite3Version="$(node -p 'require("./package.json").optionalDependencies.sqlite3')"; \
+	sqlite3Version="$(node -p 'require("./package.json").optionalDependencies["sqlite3"]')"; \
+	[ -n "$sqlite3Version" ]; \
+	[ "$sqlite3Version" != 'undefined' ]; \
 	if ! su-exec node yarn add "sqlite3@$sqlite3Version" --force; then \
 # must be some non-amd64 architecture pre-built binaries aren't published for, so let's install some build deps and do-it-all-over-again
-		apk add --no-cache --virtual .build-deps python make gcc g++ libc-dev; \
+		apk add --no-cache --virtual .build-deps g++ gcc libc-dev make python2 vips-dev; \
 		\
-		su-exec node yarn add "sqlite3@$sqlite3Version" --force --build-from-source; \
+		npm_config_python='python2' su-exec node yarn add "sqlite3@$sqlite3Version" --force --build-from-source; \
 		\
 		apk del --no-network .build-deps; \
 	fi; \
