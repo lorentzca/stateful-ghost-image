@@ -1,17 +1,15 @@
-https://github.com/docker-library/ghost/tree/master/2/alpine
+https://github.com/docker-library/ghost/tree/master/5/alpine
 
-## Usage
-Build image.
+## Create stateful Ghost image
+
+### Build image
 
 ```
-$ docker build . -t lorentzca/stateful-ghost-3.13.3
+$ docker build . -t lorentzca/stateful-ghost-5.2.2
 ```
 
-## Manage blog image
-`./manage-blog.fish help`
-
-## Migrate from existing image to new image
-Copy stateful contents from existing image.
+### Migrate from existing image to new image
+Copy contents and setting from existing image.
 
 ```
 $ ./manage-blog.fish run
@@ -25,17 +23,22 @@ $ docker stop (docker ps -q)
 Copy contents to new iamge.
 
 ```
-$ docker run --privileged -d -p 2368:2368 -e url=http://localhost:2368/ lorentzca/stateful-ghost-3.13.3
+$ docker run --privileged -d -p 2368:2368 -e url=http://localhost:2368/ lorentzca/stateful-ghost-5.2.2
 $ docker cp /tmp/images/ (docker ps -q):/var/lib/ghost/content/
 $ docker exec -i -t (docker ps -q) chown -R node:node /var/lib/ghost/content/images
 
 # Access http://localhost:2368/ghost and import the exported blog.
+# If existing user is locked, it will be solved if you suspend and release it.
+# In that case, you will also need to reset your password.
 ```
 
 Commit new version.
 
 ```
-$ ./manage-blog.fish commit "Update to Ghost version 3!" v0.0.9
+$ command docker commit \
+-m "Update to Ghost version 5.x!" \
+(docker ps -q) \
+lorentzca/blog.lorentzca.me:v0.0.12-(date +%Y%m%d%H%M)
 
 $ docker stop (docker ps -q)
 ```
@@ -44,5 +47,8 @@ Push new image.
 
 ```
 $ ./manage-blog.fish tags
-$ ./manage-blog.fish push v0.0.9-202004182344
+$ ./manage-blog.fish push v0.0.12-202206131738
 ```
+
+## Usage of the manage blog image script
+`./manage-blog.fish help`

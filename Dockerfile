@@ -1,7 +1,7 @@
 # https://docs.ghost.org/faq/node-versions/
 # https://github.com/nodejs/Release (looking for "LTS")
-# https://github.com/TryGhost/Ghost/blob/v4.1.2/package.json#L38
-FROM node:14-alpine3.14
+# https://github.com/TryGhost/Ghost/blob/v5.0.0/package.json#L54
+FROM node:16-alpine3.15
 
 # grab su-exec for easy step-down from root
 RUN apk add --no-cache 'su-exec>=0.2'
@@ -20,13 +20,21 @@ RUN set -eux; \
 ENV GHOST_INSTALL /var/lib/ghost
 ENV GHOST_CONTENT /var/lib/ghost/content
 
-ENV GHOST_VERSION 4.48.1
+ENV GHOST_VERSION 5.2.2
 
 RUN set -eux; \
 	mkdir -p "$GHOST_INSTALL"; \
 	chown node:node "$GHOST_INSTALL"; \
 	\
-	su-exec node ghost install "$GHOST_VERSION" --db sqlite3 --no-prompt --no-stack --no-setup --dir "$GHOST_INSTALL"; \
+	apkDel=; \
+	\
+	installCmd='su-exec node ghost install "$GHOST_VERSION" --db sqlite3 --no-prompt --no-stack --no-setup --dir "$GHOST_INSTALL"'; \
+	if ! eval "$installCmd"; then \
+		virtual='.build-deps-ghost'; \
+		apkDel="$apkDel $virtual"; \
+		apk add --no-cache --virtual "$virtual" g++ make python3; \
+		eval "$installCmd"; \
+	fi; \
 	\
 # Tell Ghost to listen on all ips and not prompt for additional configuration
 	cd "$GHOST_INSTALL"; \
@@ -43,21 +51,39 @@ RUN set -eux; \
 	chown node:node "$GHOST_CONTENT"; \
 	chmod 1777 "$GHOST_CONTENT"; \
 	\
-# force install "sqlite3" manually since it's an optional dependency of "ghost"
+# force install a few extra packages manually since they're "optional" dependencies
 # (which means that if it fails to install, like on ARM/ppc64le/s390x, the failure will be silently ignored and thus turn into a runtime error instead)
 # see https://github.com/TryGhost/Ghost/pull/7677 for more details
 	cd "$GHOST_INSTALL/current"; \
-# scrape the expected version of sqlite3 directly from Ghost itself
-	sqlite3Version="$(node -p 'require("./package.json").optionalDependencies["sqlite3"]')"; \
-	[ -n "$sqlite3Version" ]; \
-	[ "$sqlite3Version" != 'undefined' ]; \
-	if ! su-exec node yarn add "sqlite3@$sqlite3Version" --force; then \
+# scrape the expected versions directly from Ghost/dependencies
+	packages="$(node -p ' \
+		var ghost = require("./package.json"); \
+		var transform = require("./node_modules/@tryghost/image-transform/package.json"); \
+		[ \
+			"sharp@" + transform.optionalDependencies["sharp"], \
+			"sqlite3@" + ghost.optionalDependencies["sqlite3"], \
+		].join(" ") \
+	')"; \
+	if echo "$packages" | grep 'undefined'; then exit 1; fi; \
+	for package in $packages; do \
+		installCmd='su-exec node yarn add "$package" --force'; \
+		if ! eval "$installCmd"; then \
 # must be some non-amd64 architecture pre-built binaries aren't published for, so let's install some build deps and do-it-all-over-again
-		apk add --no-cache --virtual .build-deps g++ gcc libc-dev make python2 vips-dev; \
-		\
-		npm_config_python='python2' su-exec node yarn add "sqlite3@$sqlite3Version" --force --build-from-source; \
-		\
-		apk del --no-network .build-deps; \
+			virtualPackages='g++ make python3'; \
+			case "$package" in \
+				# TODO sharp@*) virtualPackages="$virtualPackages pkgconf vips-dev"; \
+				sharp@*) echo >&2 "sorry: libvips 8.12.1 in Alpine 3.15 is not new enough (8.12.2+) for sharp 0.30 😞"; continue ;; \
+			esac; \
+			virtual=".build-deps-${package%%@*}"; \
+			apkDel="$apkDel $virtual"; \
+			apk add --no-cache --virtual "$virtual" $virtualPackages; \
+			\
+			eval "$installCmd --build-from-source"; \
+		fi; \
+	done; \
+	\
+	if [ -n "$apkDel" ]; then \
+		apk del --no-network $apkDel; \
 	fi; \
 	\
 	su-exec node yarn cache clean; \
