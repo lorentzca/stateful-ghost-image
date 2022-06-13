@@ -28,6 +28,8 @@ $ docker cp /tmp/images/ (docker ps -q):/var/lib/ghost/content/
 $ docker exec -i -t (docker ps -q) chown -R node:node /var/lib/ghost/content/images
 
 # Access http://localhost:2368/ghost and import the exported blog.
+# If existing user is locked, it will be solved if you suspend and release it.
+# In that case, you will also need to reset your password.
 ```
 
 Commit new version.
