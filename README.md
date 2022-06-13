@@ -45,7 +45,7 @@ Push new image.
 
 ```
 $ ./manage-blog.fish tags
-$ ./manage-blog.fish push v0.0.9-202004182344
+$ ./manage-blog.fish push v0.0.12-202206131738
 ```
 
 ## Usage of the manage blog image script
