@@ -5,7 +5,7 @@ https://github.com/docker-library/ghost/tree/master/5/alpine
 ### Build image
 
 ```
-$ docker build . -t lorentzca/stateful-ghost-5.2.3
+$ docker build . -t lorentzca/stateful-ghost-5.53.1
 ```
 
 ### Migrate from existing image to new image
@@ -24,7 +24,12 @@ $ docker stop (docker ps -q)
 Copy contents to new iamge.
 
 ```
-$ docker run --privileged -d -p 2368:2368 -e url=http://localhost:2368/ lorentzca/stateful-ghost-5.2.3
+$ docker run -d \
+-e NODE_ENV=development \
+-e database__connection__filename='/var/lib/ghost/content/data/ghost.db' \
+-p 2368:2368 \
+lorentzca/stateful-ghost-5.53.1
+
 $ docker cp /tmp/images/ (docker ps -q):/var/lib/ghost/content/
 $ docker exec -i -t (docker ps -q) chown -R node:node /var/lib/ghost/content/images
 
@@ -36,10 +41,10 @@ $ docker exec -i -t (docker ps -q) chown -R node:node /var/lib/ghost/content/ima
 Commit new version.
 
 ```
-$ command docker commit \
--m "Update to Ghost version 5.2.3!" \
+$ docker commit \
+-m "Update to Ghost version 5.53.1!" \
 (docker ps -q) \
-lorentzca/blog.lorentzca.me:v0.0.13-(date +%Y%m%d%H%M)
+lorentzca/blog.lorentzca.me:v0.0.14-(date +%Y%m%d%H%M)
 
 $ docker stop (docker ps -q)
 ```
@@ -48,7 +53,7 @@ Push new image.
 
 ```
 $ ./manage-blog.fish tags
-$ ./manage-blog.fish push v0.0.13-yyyymmddHHMM
+$ ./manage-blog.fish push v0.0.14-yyyymmddHHMM
 ```
 
 ## Usage of the manage blog image script
