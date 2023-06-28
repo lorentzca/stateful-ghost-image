@@ -41,7 +41,7 @@ $ docker exec -i -t (docker ps -q) chown -R node:node /var/lib/ghost/content/ima
 Commit new version.
 
 ```
-$ command docker commit \
+$ docker commit \
 -m "Update to Ghost version 5.53.1!" \
 (docker ps -q) \
 lorentzca/blog.lorentzca.me:v0.0.14-(date +%Y%m%d%H%M)
